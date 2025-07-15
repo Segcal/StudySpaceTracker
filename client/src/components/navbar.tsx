@@ -3,74 +3,54 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 
 export default function Navbar() {
-  const { isAuthenticated, user } = useAuth();
+  const { user } = useAuth();
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center">
-              <svg className="w-8 h-8 text-primary-800 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-primary-800 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
               <span className="text-xl font-bold text-gray-900">TaxEase</span>
             </Link>
           </div>
           
-          <div className="hidden md:flex items-center space-x-4">
-            <button className="text-gray-600 hover:text-primary-800 px-3 py-2 text-sm font-medium transition-colors">
-              Features
-            </button>
-            <button className="text-gray-600 hover:text-primary-800 px-3 py-2 text-sm font-medium transition-colors">
-              Pricing
-            </button>
-            <button className="text-gray-600 hover:text-primary-800 px-3 py-2 text-sm font-medium transition-colors">
-              Support
-            </button>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-6">
+              <Link href="/dashboard" className="text-gray-700 hover:text-primary-800 font-medium">
+                Dashboard
+              </Link>
+              <Link href="/admin" className="text-gray-700 hover:text-primary-800 font-medium">
+                Admin
+              </Link>
+            </div>
             
-            {isAuthenticated ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">
-                  Welcome, {user?.firstName || user?.email}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.location.href = '/api/logout'}
-                  className="text-primary-800 border-primary-800 hover:bg-primary-50"
-                >
-                  Logout
-                </Button>
-              </div>
-            ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => window.location.href = '/api/login'}
-                  className="text-primary-800 hover:text-primary-700"
-                >
-                  Login
-                </Button>
-                <Link href="/register">
-                  <Button
-                    size="sm"
-                    className="bg-primary-800 text-white hover:bg-primary-700"
-                  >
-                    Get Started
-                  </Button>
-                </Link>
-              </>
-            )}
-          </div>
-          
-          <div className="md:hidden">
-            <button className="text-gray-600 hover:text-gray-900 p-2">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+            <div className="flex items-center space-x-3">
+              {user && (
+                <div className="flex items-center space-x-2">
+                  <img
+                    src={user.profileImageUrl || '/default-avatar.png'}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    {user.firstName || user.email}
+                  </span>
+                </div>
+              )}
+              <Button
+                onClick={() => window.location.href = '/api/logout'}
+                variant="outline"
+                className="text-gray-700 hover:text-primary-800 border-gray-300"
+              >
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </div>

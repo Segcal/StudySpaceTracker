@@ -2,11 +2,13 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import PaymentModal from './payment-modal';
 
-if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
-  throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
+const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+
+if (!stripePublicKey) {
+  console.error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
 }
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : null;
 
 interface PaymentWrapperProps {
   isOpen: boolean;
@@ -18,7 +20,7 @@ interface PaymentWrapperProps {
 }
 
 export default function PaymentWrapper(props: PaymentWrapperProps) {
-  if (!props.clientSecret) {
+  if (!props.clientSecret || !stripePromise) {
     return null;
   }
 

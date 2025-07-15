@@ -1,13 +1,13 @@
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -34,14 +34,14 @@ export default function ContactModal({ isOpen, onClose }: ContactModalProps) {
     },
   });
 
-  const contactMutation = useMutation({
+  const mutation = useMutation({
     mutationFn: async (data: ContactForm) => {
       await apiRequest("POST", "/api/contact", data);
     },
     onSuccess: () => {
       toast({
         title: "Message sent!",
-        description: "Thank you for contacting us. We'll get back to you soon.",
+        description: "We'll get back to you soon.",
       });
       form.reset();
       onClose();
@@ -56,7 +56,7 @@ export default function ContactModal({ isOpen, onClose }: ContactModalProps) {
   });
 
   const onSubmit = (data: ContactForm) => {
-    contactMutation.mutate(data);
+    mutation.mutate(data);
   };
 
   return (
@@ -68,53 +68,54 @@ export default function ContactModal({ isOpen, onClose }: ContactModalProps) {
           </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <Label htmlFor="subject" className="text-sm font-medium text-gray-700">Subject</Label>
-            <Select value={form.watch("subject")} onValueChange={(value) => form.setValue("subject", value)}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select a subject" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="General Inquiry">General Inquiry</SelectItem>
-                <SelectItem value="Tax Calculation Help">Tax Calculation Help</SelectItem>
-                <SelectItem value="Account Issues">Account Issues</SelectItem>
-                <SelectItem value="Payment Problem">Payment Problem</SelectItem>
-                <SelectItem value="Technical Support">Technical Support</SelectItem>
-              </SelectContent>
-            </Select>
-            {form.formState.errors.subject && (
-              <p className="text-red-500 text-sm mt-1">{form.formState.errors.subject.message}</p>
-            )}
-          </div>
-          
-          <div>
-            <Label htmlFor="message" className="text-sm font-medium text-gray-700">Message</Label>
-            <Textarea
-              id="message"
-              {...form.register("message")}
-              placeholder="Describe your issue or question..."
-              rows={4}
-              className="mt-1"
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="subject"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Subject</FormLabel>
+                  <FormControl>
+                    <Input placeholder="What can we help you with?" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            {form.formState.errors.message && (
-              <p className="text-red-500 text-sm mt-1">{form.formState.errors.message.message}</p>
-            )}
-          </div>
-          
-          <div className="flex justify-end space-x-3">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-primary-800 hover:bg-primary-700"
-              disabled={contactMutation.isPending}
-            >
-              {contactMutation.isPending ? "Sending..." : "Send Message"}
-            </Button>
-          </div>
-        </form>
+            
+            <FormField
+              control={form.control}
+              name="message"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Message</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Please describe your issue or question..."
+                      rows={4}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <div className="flex justify-end space-x-3">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="bg-primary-800 hover:bg-primary-700"
+                disabled={mutation.isPending}
+              >
+                {mutation.isPending ? "Sending..." : "Send Message"}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
