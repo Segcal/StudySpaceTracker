@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -9,12 +9,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from "@/components/navbar";
 import ContactModal from "@/components/contact-modal";
 import TaxCard from "@/components/tax-card";
+import PaymentWrapper from "@/components/payment-wrapper";
+import AnalyticsChart from "@/components/analytics-chart";
+import { apiRequest } from "@/lib/queryClient";
 import type { TaxProfile } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentData, setPaymentData] = useState<{
+    amount: number;
+    paymentType: 'income_tax' | 'property_tax' | 'utility_bill';
+    title: string;
+    clientSecret: string;
+  } | null>(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -36,6 +46,33 @@ export default function Home() {
     enabled: isAuthenticated,
     retry: false,
   });
+
+  const createPaymentIntentMutation = useMutation({
+    mutationFn: async ({ amount, paymentType }: { amount: number; paymentType: string }) => {
+      const response = await apiRequest("POST", "/api/create-payment-intent", { amount, paymentType });
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      setPaymentData({
+        amount: variables.amount,
+        paymentType: variables.paymentType as 'income_tax' | 'property_tax' | 'utility_bill',
+        title: variables.paymentType.replace('_', ' ').toUpperCase(),
+        clientSecret: data.clientSecret,
+      });
+      setIsPaymentModalOpen(true);
+    },
+    onError: (error) => {
+      toast({
+        title: "Payment setup failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handlePayment = (amount: number, paymentType: 'income_tax' | 'property_tax' | 'utility_bill') => {
+    createPaymentIntentMutation.mutate({ amount, paymentType });
+  };
 
   if (isLoading || isLoadingProfile) {
     return (
@@ -116,51 +153,84 @@ export default function Home() {
 
         {/* Tax Overview Cards */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <TaxCard
-            title="Income Tax"
-            icon="receipt"
-            iconColor="primary"
-            items={[
-              { label: "Annual Income:", value: `$${profile.income.toLocaleString()}` },
-              { label: "Tax Due:", value: `$${profile.incomeTaxDue.toLocaleString()}`, isHighlighted: true },
-              { label: "Due Date:", value: new Date(profile.dueDate).toLocaleDateString() },
-            ]}
-            status={daysUntilDue > 0 ? `Due in ${daysUntilDue} days` : "Overdue"}
-            statusColor={daysUntilDue > 30 ? "success" : daysUntilDue > 0 ? "warning" : "error"}
-          />
+          <div className="relative">
+            <TaxCard
+              title="Income Tax"
+              icon="receipt"
+              iconColor="primary"
+              items={[
+                { label: "Annual Income:", value: `$${profile.income.toLocaleString()}` },
+                { label: "Tax Due:", value: `$${profile.incomeTaxDue.toLocaleString()}`, isHighlighted: true },
+                { label: "Due Date:", value: new Date(profile.dueDate).toLocaleDateString() },
+              ]}
+              status={daysUntilDue > 0 ? `Due in ${daysUntilDue} days` : "Overdue"}
+              statusColor={daysUntilDue > 30 ? "success" : daysUntilDue > 0 ? "warning" : "error"}
+            />
+            <div className="absolute bottom-4 left-6 right-6">
+              <Button
+                onClick={() => handlePayment(profile.incomeTaxDue, 'income_tax')}
+                className="w-full bg-primary-800 hover:bg-primary-700 text-white"
+                disabled={createPaymentIntentMutation.isPending}
+              >
+                {createPaymentIntentMutation.isPending ? "Processing..." : "Pay Now"}
+              </Button>
+            </div>
+          </div>
 
-          <TaxCard
-            title="Property Tax"
-            icon="home"
-            iconColor="success"
-            items={[
-              { label: "Property Value:", value: `$${profile.propertyValue.toLocaleString()}` },
-              { label: "Property Tax:", value: `$${profile.propertyTax.toLocaleString()}`, isHighlighted: true },
-              { label: "Property ID:", value: profile.propertyId },
-            ]}
-            status="Paid"
-            statusColor="success"
-          />
+          <div className="relative">
+            <TaxCard
+              title="Property Tax"
+              icon="home"
+              iconColor="success"
+              items={[
+                { label: "Property Value:", value: `$${profile.propertyValue.toLocaleString()}` },
+                { label: "Property Tax:", value: `$${profile.propertyTax.toLocaleString()}`, isHighlighted: true },
+                { label: "Property ID:", value: profile.propertyId },
+              ]}
+              status="Paid"
+              statusColor="success"
+            />
+            <div className="absolute bottom-4 left-6 right-6">
+              <Button
+                onClick={() => handlePayment(profile.propertyTax, 'property_tax')}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                disabled={createPaymentIntentMutation.isPending}
+              >
+                {createPaymentIntentMutation.isPending ? "Processing..." : "Pay Now"}
+              </Button>
+            </div>
+          </div>
 
-          <TaxCard
-            title="Utility Bills"
-            icon="bolt"
-            iconColor="warning"
-            items={[
-              { label: "Electric Bill:", value: `$${profile.electricBill}` },
-              { label: "Gas Bill:", value: `$${profile.gasBill}` },
-              { label: "Total Monthly:", value: `$${profile.electricBill + profile.gasBill}`, isHighlighted: true },
-            ]}
-            status="Payment pending"
-            statusColor="warning"
-          />
+          <div className="relative">
+            <TaxCard
+              title="Utility Bills"
+              icon="bolt"
+              iconColor="warning"
+              items={[
+                { label: "Electric Bill:", value: `$${profile.electricBill}` },
+                { label: "Gas Bill:", value: `$${profile.gasBill}` },
+                { label: "Total Monthly:", value: `$${profile.electricBill + profile.gasBill}`, isHighlighted: true },
+              ]}
+              status="Payment pending"
+              statusColor="warning"
+            />
+            <div className="absolute bottom-4 left-6 right-6">
+              <Button
+                onClick={() => handlePayment(profile.electricBill + profile.gasBill, 'utility_bill')}
+                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
+                disabled={createPaymentIntentMutation.isPending}
+              >
+                {createPaymentIntentMutation.isPending ? "Processing..." : "Pay Now"}
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Detailed Information Tabs */}
         <Card>
           <Tabs defaultValue="income" className="w-full">
             <div className="border-b border-gray-200">
-              <TabsList className="grid w-full grid-cols-3 rounded-none bg-transparent h-auto">
+              <TabsList className="grid w-full grid-cols-4 rounded-none bg-transparent h-auto">
                 <TabsTrigger 
                   value="income" 
                   className="py-4 border-b-2 border-transparent data-[state=active]:border-primary-800 data-[state=active]:text-primary-800 rounded-none"
@@ -178,6 +248,12 @@ export default function Home() {
                   className="py-4 border-b-2 border-transparent data-[state=active]:border-primary-800 data-[state=active]:text-primary-800 rounded-none"
                 >
                   Utilities
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="analytics" 
+                  className="py-4 border-b-2 border-transparent data-[state=active]:border-primary-800 data-[state=active]:text-primary-800 rounded-none"
+                >
+                  Analytics
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -304,6 +380,11 @@ export default function Home() {
                 </Card>
               </div>
             </TabsContent>
+
+            <TabsContent value="analytics" className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Tax Analytics</h3>
+              <AnalyticsChart />
+            </TabsContent>
           </Tabs>
         </Card>
       </div>
@@ -312,6 +393,20 @@ export default function Home() {
         isOpen={isContactModalOpen} 
         onClose={() => setIsContactModalOpen(false)} 
       />
+      
+      {paymentData && (
+        <PaymentWrapper
+          isOpen={isPaymentModalOpen}
+          onClose={() => {
+            setIsPaymentModalOpen(false);
+            setPaymentData(null);
+          }}
+          amount={paymentData.amount}
+          paymentType={paymentData.paymentType}
+          title={paymentData.title}
+          clientSecret={paymentData.clientSecret}
+        />
+      )}
     </div>
   );
 }

@@ -2,8 +2,16 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertTaxProfileSchema, insertContactMessageSchema } from "@shared/schema";
+import { insertTaxProfileSchema, insertContactMessageSchema, insertPaymentSchema } from "@shared/schema";
 import { z } from "zod";
+import Stripe from "stripe";
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2025-06-30.basil",
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -116,6 +124,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching contact messages:", error);
       res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // Payment routes
+  app.post('/api/create-payment-intent', isAuthenticated, async (req: any, res) => {
+    try {
+      const { amount, paymentType } = req.body;
+      const userId = req.user.claims.sub;
+      
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: "usd",
+        metadata: {
+          userId,
+          paymentType,
+        },
+      });
+      
+      res.json({ clientSecret: paymentIntent.client_secret });
+    } catch (error: any) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ message: "Error creating payment intent: " + error.message });
+    }
+  });
+
+  app.post('/api/payments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const taxProfile = await storage.getTaxProfile(userId);
+      
+      if (!taxProfile) {
+        return res.status(404).json({ message: "Tax profile not found" });
+      }
+      
+      const paymentData = insertPaymentSchema.parse({
+        ...req.body,
+        userId,
+        taxProfileId: taxProfile.id,
+      });
+      
+      const payment = await storage.createPayment(paymentData);
+      res.json(payment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid payment data", errors: error.errors });
+      }
+      console.error("Error creating payment:", error);
+      res.status(500).json({ message: "Failed to create payment" });
+    }
+  });
+
+  app.get('/api/payments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const payments = await storage.getPayments(userId);
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+      res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+
+  // Admin routes
+  app.get('/api/admin/tax-profiles', isAuthenticated, async (req: any, res) => {
+    try {
+      // In a real app, you'd check if user has admin role
+      const profiles = await storage.getAllTaxProfiles();
+      res.json(profiles);
+    } catch (error) {
+      console.error("Error fetching all tax profiles:", error);
+      res.status(500).json({ message: "Failed to fetch tax profiles" });
+    }
+  });
+
+  app.get('/api/admin/payments', isAuthenticated, async (req: any, res) => {
+    try {
+      // In a real app, you'd check if user has admin role
+      const payments = await storage.getAllPayments();
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching all payments:", error);
+      res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+
+  // Analytics endpoint
+  app.get('/api/analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const taxProfile = await storage.getTaxProfile(userId);
+      const payments = await storage.getPayments(userId);
+      
+      if (!taxProfile) {
+        return res.status(404).json({ message: "Tax profile not found" });
+      }
+      
+      const analytics = {
+        totalTaxOwed: taxProfile.incomeTaxDue + taxProfile.propertyTax,
+        totalPaid: payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0),
+        paymentHistory: payments.map(p => ({
+          date: p.createdAt,
+          amount: p.amount,
+          type: p.paymentType,
+          status: p.status
+        })),
+        monthlyUtilities: taxProfile.electricBill + taxProfile.gasBill,
+        taxBreakdown: {
+          incomeTax: taxProfile.incomeTaxDue,
+          propertyTax: taxProfile.propertyTax,
+          utilities: (taxProfile.electricBill + taxProfile.gasBill) * 12
+        }
+      };
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
     }
   });
 

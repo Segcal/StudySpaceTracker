@@ -63,6 +63,18 @@ export const contactMessages = pgTable("contact_messages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Payment records table
+export const payments = pgTable("payments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  taxProfileId: uuid("tax_profile_id").notNull().references(() => taxProfiles.id),
+  amount: integer("amount").notNull(),
+  paymentType: varchar("payment_type").notNull(), // 'income_tax', 'property_tax', 'utility_bill'
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"),
+  status: varchar("status").notNull().default("pending"), // 'pending', 'completed', 'failed'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertTaxProfileSchema = createInsertSchema(taxProfiles).omit({
   id: true,
@@ -74,6 +86,11 @@ export const insertContactMessageSchema = createInsertSchema(contactMessages).om
   createdAt: true,
 });
 
+export const insertPaymentSchema = createInsertSchema(payments).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -81,3 +98,5 @@ export type TaxProfile = typeof taxProfiles.$inferSelect;
 export type InsertTaxProfile = z.infer<typeof insertTaxProfileSchema>;
 export type ContactMessage = typeof contactMessages.$inferSelect;
 export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
