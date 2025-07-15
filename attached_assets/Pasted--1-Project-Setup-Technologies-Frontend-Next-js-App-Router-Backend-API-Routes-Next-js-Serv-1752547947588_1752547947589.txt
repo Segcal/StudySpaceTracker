@@ -1,0 +1,119 @@
+ 1. Project Setup
+🔧 Technologies:
+Frontend: Next.js (App Router)
+
+Backend: API Routes (Next.js Server Functions)
+
+Database & Auth: Supabase
+
+Styling: Tailwind CSS
+
+Forms & Validation: React Hook Form + Zod
+
+Optional: Stripe (for payment), Email.js or Resend (for contact messages)
+
+✅ 2. Pages & Components Structure
+🏠 app/page.tsx – Landing Page
+Describe your platform and services
+
+Add call-to-actions: "Register", "Login"
+
+Use Tailwind to make it responsive and clean
+
+📝 app/register/page.tsx – Registration Form
+Fields:
+
+Full Name, Email, NIN, Address, Property ID, Property Value, Income, Utility Details
+
+On submit:
+
+Create user in Supabase Auth
+
+Save extra fields to tax_profiles table
+
+🔐 app/login/page.tsx – Login
+Email + Password
+
+Uses Supabase Auth
+
+💼 app/dashboard/page.tsx – User Dashboard
+Tabs or cards:
+
+Income Tax Details
+
+Property Tax Details
+
+Electric Bill
+
+Gas Bill
+
+Contact Form (popup modal)
+
+Fetch all data from Supabase where user_id === current user
+
+✅ 3. Database Design (Supabase)
+📄 tax_profiles
+Field	Type
+id	UUID (PK)
+user_id	UUID (FK)
+full_name	Text
+nin	Text
+property_id	Text
+property_address	Text
+property_tax	Integer
+income	Integer
+income_tax_due	Integer
+electric_bill	Integer
+gas_bill	Integer
+due_date	Date
+created_at	Timestamp
+
+📄 contact_messages
+Field	Type
+id	UUID (PK)
+user_id	UUID (FK)
+message	Text
+created_at	Timestamp
+
+✅ 4. Backend API Routes (Next.js)
+📨 /api/contact/route.ts
+Accepts POST with message content
+
+Saves to Supabase
+
+Optional: sends email via Email.js/Resend
+
+✅ 5. Authentication Flow
+Use Supabase Auth (email/password)
+
+Protect /dashboard and other routes:
+
+Use Supabase client inside layout.tsx or middleware.ts
+
+Redirect unauthenticated users to /login
+
+✅ 6. Optional Enhancements
+Admin Panel: Add a separate route for admin to view all tax records
+
+Notifications: Email/SMS reminders for due dates
+
+Analytics: Visual charts (income vs tax)
+
+🔚 Final Folder Structure Example:
+bash
+Copy
+Edit
+/app
+  /page.tsx                → Landing Page
+  /register/page.tsx       → Registration Form
+  /login/page.tsx          → Login Page
+  /dashboard/page.tsx      → Dashboard UI
+  /api/contact/route.ts    → API contact modal handler
+
+/components
+  /Navbar.tsx
+  /TaxCard.tsx
+  /ContactModal.tsx
+
+/lib
+  /supabaseClient.ts       → Supabase SDK setup
